@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedBrief AI — Medical Assistant Engine</title>
+    <title>MedBrief AI — Professional Clinical Intelligence Engine</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
-            --primary: #0d9488; /* Clinical Teal */
+            --primary: #0d9488;
             --primary-hover: #0f766e;
             --primary-light: #f0fdfa;
             --bg-main: #f8fafc;
@@ -15,7 +16,7 @@
             --text-muted: #475569;
             --border: #e2e8f0;
             --chat-user: #e0f2fe;
-            --chat-ai: #f8fafc;
+            --chat-ai: #ffffff;
             --danger: #ef4444;
             --success: #22c55e;
         }
@@ -24,7 +25,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         body {
@@ -33,15 +34,14 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            position: relative;
+            overflow: hidden;
         }
 
-        /* Professional Medical Header */
         header {
             background-color: var(--bg-card);
             padding: 0.85rem 2rem;
             border-bottom: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -71,7 +71,6 @@
         header h1 {
             font-size: 1.3rem;
             font-weight: 700;
-            letter-spacing: -0.02em;
             color: #1e293b;
         }
 
@@ -93,7 +92,6 @@
             color: var(--text-muted);
             font-weight: 600;
             border: 1px solid var(--border);
-            transition: all 0.3s ease;
         }
 
         .mode-badge.active-doc {
@@ -114,7 +112,6 @@
             align-items: center;
             gap: 0.5rem;
             color: #334155;
-            transition: all 0.2s ease;
         }
 
         .key-btn:hover {
@@ -128,7 +125,6 @@
             height: 8px;
             background-color: var(--danger);
             border-radius: 50%;
-            display: inline-block;
         }
 
         .key-status-dot.valid {
@@ -136,102 +132,110 @@
             box-shadow: 0 0 8px var(--success);
         }
 
-        /* Core Workspace Container */
-        .app-container {
+        /* Dashboard Workspace Design split into Sidebar + Workspace */
+        .app-workspace {
             flex: 1;
             display: flex;
-            flex-direction: column;
             overflow: hidden;
-            padding: 1.5rem;
-            gap: 1.25rem;
-            max-width: 1100px;
             width: 100%;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
-        /* Advanced Dynamic Upload Section */
-        .upload-section {
-            background: var(--bg-card);
-            padding: 2rem;
-            border-radius: 12px;
-            border: 2px dashed #cbd5e1;
-            text-align: center;
-            transition: all 0.2s ease-in-out;
-            flex-shrink: 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        /* Medical Record Control Sidebar */
+        .sidebar {
+            width: 320px;
+            border-right: 1px solid var(--border);
+            background-color: #ffffff;
+            padding: 1.5rem;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            gap: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            font-weight: 700;
+        }
+
+        .upload-section {
+            background: var(--bg-main);
+            padding: 1.5rem 1rem;
+            border-radius: 8px;
+            border: 2px dashed #cbd5e1;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
         }
 
         .upload-section.dragover {
             border-color: var(--primary);
             background: var(--primary-light);
-            transform: scale(1.01);
-        }
-
-        .upload-icon {
-            font-size: 2rem;
-            color: #94a3b8;
-        }
-
-        .upload-section p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
         }
 
         .upload-btn {
             background-color: var(--primary);
             color: white;
-            padding: 0.5rem 1.25rem;
+            padding: 0.4rem 1rem;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.9rem;
-            transition: background-color 0.2s;
-            box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
         }
 
-        .upload-btn:hover {
-            background-color: var(--primary-hover);
-        }
+        #file-input { display: none; }
 
-        #file-input {
+        .active-file-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            background-color: var(--bg-main);
             display: none;
         }
 
-        /* Interactive Dashboard/Chat Area */
-        .chat-panel {
+        .active-file-card.show {
+            display: block;
+        }
+
+        .file-name-text {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1e293b;
+            word-break: break-all;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Main Dialogue Console Layout */
+        .main-panel {
             flex: 1;
-            background: var(--bg-card);
-            border-radius: 12px;
-            border: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+            background: #ffffff;
         }
 
         .chat-history {
             flex: 1;
-            padding: 1.5rem;
+            padding: 1.5rem 2rem;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 1.25rem;
-            background: linear-gradient(to bottom, #ffffff, #fcfcfc);
+            gap: 1.5rem;
+            background-color: #fafafa;
         }
 
         .message {
-            max-width: 80%;
+            max-width: 85%;
             padding: 1rem 1.25rem;
             border-radius: 12px;
             line-height: 1.6;
             font-size: 0.95rem;
-            word-wrap: break-word;
             box-shadow: 0 1px 2px rgba(0,0,0,0.02);
         }
 
@@ -250,379 +254,35 @@
             border-bottom-left-radius: 2px;
         }
 
+        /* Markdown elements formatting layout for AI responses */
+        .message.ai table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.75rem 0;
+            font-size: 0.9rem;
+        }
+        .message.ai th, .message.ai td {
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+        }
+        .message.ai th { background-color: #f1f5f9; font-weight: 600; }
+        .message.ai ul, .message.ai ol { margin-left: 1.25rem; margin-top: 0.5rem; }
+        .message.ai h3 { margin-top: 0.75rem; color: #0f172a; font-size: 1.1rem; }
+
         .message.system {
             align-self: center;
             background-color: #fffbeb;
             color: #78350f;
             border: 1px solid #fde68a;
             font-size: 0.85rem;
-            max-width: 90%;
             text-align: center;
             border-radius: 8px;
         }
 
-        /* Interactive Chips / Suggestion Boxes */
         .interactive-suggestions {
             display: flex;
             gap: 0.5rem;
-            padding: 0 1.5rem 0.75rem 1.5rem;
+            padding: 0.75rem 2rem;
             flex-wrap: wrap;
-            background-color: #ffffff;
-        }
-
-        .suggestion-chip {
-            background-color: #f1f5f9;
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 0.4rem 0.85rem;
-            border-radius: 50px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .suggestion-chip:hover {
-            background-color: var(--primary-light);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        /* Input Controls Layout */
-        .chat-input-area {
-            padding: 1.25rem;
-            border-top: 1px solid var(--border);
-            display: flex;
-            gap: 0.75rem;
-            background-color: #ffffff;
-            align-items: center;
-        }
-
-        #chat-input {
-            flex: 1;
-            padding: 0.85rem 1.25rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            outline: none;
-            font-size: 0.95rem;
-            color: var(--text-main);
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        #chat-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
-        }
-
-        #send-btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.85rem 1.75rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: background-color 0.2s;
-            box-shadow: 0 2px 4px rgba(13, 148, 136, 0.1);
-        }
-
-        #send-btn:hover {
-            background-color: var(--primary-hover);
-        }
-
-        #send-btn:disabled, #chat-input:disabled {
-            background-color: #e2e8f0;
-            color: #94a3b8;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
-        /* Dynamic Configuration Overlay */
-        .modal-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.4);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.25s ease;
-        }
-
-        .modal-overlay.open {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .modal-box {
-            background: var(--bg-card);
-            padding: 2.25rem;
-            border-radius: 12px;
-            width: 460px;
-            max-width: 92%;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-        }
-
-        .modal-box h3 {
-            margin-bottom: 0.5rem;
-            color: #1e293b;
-            font-size: 1.25rem;
-            font-weight: 700;
-        }
-
-        .modal-box p {
-            font-size: 0.88rem;
-            color: var(--text-muted);
-            margin-bottom: 1.5rem;
-            line-height: 1.5;
-        }
-
-        .modal-box input {
-            width: 100%;
-            padding: 0.85rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            margin-bottom: 1.5rem;
-            font-size: 0.95rem;
-            outline: none;
-        }
-        
-        .modal-box input:focus {
-            border-color: var(--primary);
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-        }
-
-        .btn-secondary {
-            background-color: #f1f5f9;
-            color: #475569;
-            border: none;
-            padding: 0.6rem 1.25rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .btn-primary {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.6rem 1.25rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .btn-primary:hover { background-color: var(--primary-hover); }
-
-        /* Healthcare Interface Spinner animation */
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            animation: spin 0.8s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 0.5rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="logo-area">
-            <div class="logo-icon">┼</div>
-            <h1>MedBrief <span>AI</span></h1>
-        </div>
-        <div class="header-actions">
-            <div class="mode-badge" id="app-mode">Symptom Checker Active</div>
-            <button class="key-btn" id="open-settings-btn">
-                <span class="key-status-dot" id="key-dot"></span>
-                <span>API Gateway</span>
-            </button>
-        </div>
-    </header>
-
-    <div class="app-container">
-        <div class="upload-section" id="drop-zone">
-            <div class="upload-icon">📋</div>
-            <p><strong>Drag & drop your medical PDF report here</strong> or select it from your device</p>
-            <button class="upload-btn" onclick="document.getElementById('file-input').click()">Browse Records</button>
-            <input type="file" id="file-input" accept="application/pdf">
-            <div id="upload-status" style="margin-top: 0.25rem; font-size: 0.88rem; color: var(--primary); font-weight: 600;"></div>
-        </div>
-        
-        <div class="chat-panel">
-            <div class="chat-history" id="chat-history">
-                <div class="message ai">
-                    <strong>Welcome to MedBrief AI clinical interface.</strong><br><br>
-                    • <strong>Document Automation:</strong> Upload any healthcare PDF (like laboratory panels or prescriptions) above. The system parses structural values directly into this dialogue stream without exposing private documents to external layout grids.<br>
-                    • <strong>Diagnostic Symptom Intelligence:</strong> Type active clinical indicators or lifestyle irregularities down below to cross-evaluate physiological condition criteria instantly.
-                </div>
-            </div>
-            
-            <div class="interactive-suggestions" id="suggestions-row">
-                <button class="suggestion-chip" onclick="applySuggestion('Check general risk factors for High Blood Sugar')">Glucose Variations</button>
-                <button class="suggestion-chip" onclick="applySuggestion('Analyze potential causes for persistent dry cough and fatigue')">Analyze Symptoms</button>
-                <button class="suggestion-chip" onclick="applySuggestion('Explain normal ranges for Lipid Cholesterol Profiles')">Understand Lab Ranges</button>
-            </div>
-
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Type medical indicators, symptoms, or ask record analytics questions...">
-                <button id="send-btn">Send</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="settings-modal">
-        <div class="modal-box">
-            <h3>Configure API Access Credentials</h3>
-            <p>To use this healthcare intelligence portal, input your unique Gemini API Studio application key. This key is localized entirely within your local browser ecosystem sandbox.</p>
-            <input type="password" id="api-key-input" placeholder="Paste Gemini API code string (AIzaSy...)">
-            <div class="modal-actions">
-                <button class="btn-secondary" id="close-settings-btn">Cancel</button>
-                <button class="btn-primary" id="save-key-btn">Authorize Entry</button>
-            </div>
-        </div>
-    </div>
-
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://esm.run/@google/genai"
-        }
-      }
-    </script>
-
-    <script type="module">
-        import { GoogleGenAI } from '@google/genai';
-
-        let API_KEY = localStorage.getItem('medbrief_gemini_key') || "";
-        let ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
-        let currentDocumentContext = null; 
-        let chatSession = null;
-        let activeMode = "symptom"; 
-
-        const DOCUMENT_SYSTEM_INSTRUCTION = "You are a healthcare document analysis assistant specializing in blood test reports and medical prescriptions. Extract all key values, flag abnormalities, and explain medical terms in simple language. Answer questions based only on the uploaded document.";
-        const GENERAL_SYMPTOM_INSTRUCTION = "You are an expert clinical medical intelligence engine. When provided with patient symptoms, map them onto potential underlying medical conditions. Clearly outline structural risk profiles, specify whether clinical triage is recommended, and explain medical concepts cleanly. Always add a mandatory disclaimer that this does not replace professional medical opinions.";
-
-        // UI Binding Objects
-        const fileInput = document.getElementById('file-input');
-        const dropZone = document.getElementById('drop-zone');
-        const uploadStatus = document.getElementById('upload-status');
-        const chatHistory = document.getElementById('chat-history');
-        const chatInput = document.getElementById('chat-input');
-        const sendBtn = document.getElementById('send-btn');
-        const appModeBadge = document.getElementById('app-mode');
-        const suggestionsRow = document.getElementById('suggestions-row');
-        
-        const settingsModal = document.getElementById('settings-modal');
-        const openSettingsBtn = document.getElementById('open-settings-btn');
-        const closeSettingsBtn = document.getElementById('close-settings-btn');
-        const saveKeyBtn = document.getElementById('save-key-btn');
-        const apiKeyInput = document.getElementById('api-key-input');
-        const keyDot = document.getElementById('key-dot');
-
-        window.applySuggestion = function(text) {
-            chatInput.value = text;
-            chatInput.focus();
-        };
-
-        updateKeyStatusUI();
-
-        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            handleFile(e.dataTransfer.files[0]);
-        });
-
-        sendBtn.addEventListener('click', handleSendMessage);
-        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSendMessage(); });
-
-        openSettingsBtn.addEventListener('click', () => {
-            apiKeyInput.value = API_KEY;
-            settingsModal.classList.add('open');
-        });
-        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('open'));
-        saveKeyBtn.addEventListener('click', () => {
-            const incomingKey = apiKeyInput.value.trim();
-            if (incomingKey) {
-                localStorage.setItem('medbrief_gemini_key', incomingKey);
-                API_KEY = incomingKey;
-                ai = new GoogleGenAI({ apiKey: API_KEY });
-                appendMessage('system', 'Clinical API integration updated.');
-            } else {
-                localStorage.removeItem('medbrief_gemini_key');
-                API_KEY = "";
-                ai = null;
-                appendMessage('system', 'Credentials unlinked.');
-            }
-            updateKeyStatusUI();
-            settingsModal.classList.remove('open');
-        });
-
-        function updateKeyStatusUI() {
-            if (API_KEY) {
-                keyDot.classList.add('valid');
-            } else {
-                keyDot.classList.remove('valid');
-            }
-        }
-
-        function handleFile(file) {
-            if (!file || file.type !== 'application/pdf') {
-                alert('Please upload a valid healthcare PDF file.');
-                return;
-            }
-
-            activeMode = "document";
-            appModeBadge.textContent = "Document Analysis Active";
-            appModeBadge.classList.add('active-doc');
-            suggestionsRow.style.display = 'none'; // Hide general suggestions during file parsing
-
-            const reader = new FileReader();
-            reader.onload = async function() {
-                const base64Data = reader.result.split(',')[1];
-                currentDocumentContext = {
-                    inlineData: {
-                        data: base64Data,
-                        mimeType: "application/pdf"
-                    }
-                };
-                await analyzeDocument();
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function analyzeDocument() {
-            if (!checkApiKeyValidity()) return;
-
-            uploadStatus.innerHTML = `<span class="spinner"></span> Reading metrics...`;
-            appendMessage('system', 'Health record discovered. Extrapolating physiological values in background pipeline...');
-
-            try {
-                chatSession = ai.chats.create({
-                    model: 'gemini-2.5-flash',
+            background-
