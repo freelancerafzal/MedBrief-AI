@@ -613,34 +613,37 @@
             reader.readAsDataURL(file);
         }
 
-        async function analyzeDocument() {
-            if (!checkApiKeyValidity()) return;
+       async function analyzeDocument() {
+    if (!checkApiKeyValidity()) return;
 
-            uploadStatus.innerHTML = `<span class="spinner"></span> Extracting data...`;
-            appendMessage('system', 'Analyzing health record data vectors via secure stream context...');
+    uploadStatus.innerHTML = `<span class="spinner"></span> Extracting data...`;
+    appendMessage('system', 'Analyzing health record data vectors via secure stream context...');
 
-            try {
-                chatSession = ai.chats.create({
-                    model: 'gemini-2.5-flash',
-                    config: { systemInstruction: DOCUMENT_SYSTEM_INSTRUCTION }
-                });
+    try {
+        // Create the chat session
+        chatSession = ai.chats.create({
+            model: 'gemini-2.5-flash',
+            config: { systemInstruction: DOCUMENT_SYSTEM_INSTRUCTION }
+        });
 
-                const response = await chatSession.sendMessage({
-                    message: [
-                        currentDocumentContext,
-                        "Please perform an initial extraction, structural value cataloging, and flag abnormalities."
-                    ]
-                });
+        // FIX: Structural format adjustment for passing inline data files in the new JS SDK
+        const response = await chatSession.sendMessage({
+            message: [
+                {
+                    inlineData: currentDocumentContext.inlineData
+                },
+                "Please perform an initial extraction, structural value cataloging, and flag abnormalities."
+            ]
+        });
 
-                uploadStatus.innerHTML = "✅ Processing complete.";
-                appendMarkdownMessage('ai', response.text);
-            } catch (error) {
-                console.error(error);
-                uploadStatus.innerHTML = "❌ Pipeline processing error.";
-                appendMessage('system', 'Could not parse document data vectors securely. Verify API token constraints.');
-            }
-        }
-
+        uploadStatus.innerHTML = "✅ Processing complete.";
+        appendMarkdownMessage('ai', response.text);
+    } catch (error) {
+        console.error("Pipeline Error Trace: ", error);
+        uploadStatus.innerHTML = "❌ Pipeline processing error.";
+        appendMessage('system', 'Could not parse document data vectors securely. Verify your API token constraints or check your developer console.');
+    }
+}
         async function handleSendMessage() {
             const query = chatInput.value.trim();
             if (!query) return;
