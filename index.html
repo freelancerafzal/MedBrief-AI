@@ -29,6 +29,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
         header {
@@ -46,6 +47,12 @@
             color: var(--primary);
         }
 
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
         .mode-badge {
             font-size: 0.85rem;
             padding: 0.25rem 0.75rem;
@@ -60,6 +67,36 @@
             color: #166534;
         }
 
+        .key-btn {
+            background: none;
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .key-btn:hover {
+            background-color: #f8fafc;
+            border-color: var(--primary);
+        }
+
+        .key-status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .key-status-dot.valid {
+            background-color: #22c55e;
+        }
+
         .app-container {
             flex: 1;
             display: flex;
@@ -68,7 +105,7 @@
             gap: 1rem;
         }
 
-        /* Left Side: Upload & Viewer */
+        /* Left Side: Upload & Extraction Data Area */
         .doc-panel {
             flex: 1;
             display: flex;
@@ -221,6 +258,83 @@
             cursor: not-allowed;
         }
 
+        /* API Key Dialog Box Overlay */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-box {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 8px;
+            width: 450px;
+            max-width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-box h3 {
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        .modal-box p {
+            font-size: 0.87rem;
+            color: #64748b;
+            margin-bottom: 1.25rem;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 1.25rem;
+            font-size: 0.95rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: #334155;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover { background-color: var(--primary-hover); }
+
         /* Loading Spinner */
         .spinner {
             border: 3px solid #f3f3f3;
@@ -244,7 +358,13 @@
 
     <header>
         <h1>MedBrief <span style="color: #64748b; font-weight: 400; font-size: 1.1rem;">AI</span></h1>
-        <div class="mode-badge" id="app-mode">Mode: Symptom Checker / General Q&A</div>
+        <div class="header-actions">
+            <div class="mode-badge" id="app-mode">Mode: Symptom Checker / General Q&A</div>
+            <button class="key-btn" id="open-settings-btn">
+                <span class="key-status-dot" id="key-dot"></span>
+                <span>API Key</span>
+            </button>
+        </div>
     </header>
 
     <div class="app-container">
@@ -279,6 +399,18 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal-box">
+            <h3>Configure Gemini API Key</h3>
+            <p>Your API key is securely saved locally inside your web browser engine (`localStorage`) and is never sent to any external tracking servers.</p>
+            <input type="password" id="api-key-input" placeholder="Paste your AI Studio API key (AIzaSy...) here">
+            <div class="modal-actions">
+                <button class="btn-secondary" id="close-settings-btn">Cancel</button>
+                <button class="btn-primary" id="save-key-btn">Save Configurations</button>
+            </div>
+        </div>
+    </div>
+
     <script type="importmap">
       {
         "imports": {
@@ -290,22 +422,18 @@
     <script type="module">
         import { GoogleGenAI } from '@google/genai';
 
-        // ==========================================
-        // ADD YOUR GEMINI API KEY HERE
-        // ==========================================
-        const API_KEY = "YOUR_GEMINI_API_KEY"; 
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
-
-        // App States
+        // Internal App Context State Parameters
+        let API_KEY = localStorage.getItem('medbrief_gemini_key') || "";
+        let ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
         let currentDocumentContext = null; 
         let chatSession = null;
-        let activeMode = "symptom"; // "symptom" or "document"
+        let activeMode = "symptom"; 
 
-        // System Instructions
+        // System Prompt Configurations
         const DOCUMENT_SYSTEM_INSTRUCTION = "You are a healthcare document analysis assistant specializing in blood test reports and medical prescriptions. Extract all key values, flag abnormalities, and explain medical terms in simple language. Answer questions based only on the uploaded document.";
         const GENERAL_SYMPTOM_INSTRUCTION = "You are an expert clinical medical intelligence engine. When provided with patient symptoms, map them onto potential underlying medical conditions. Clearly outline structural risk profiles, specify whether clinical triage is recommended, and explain medical concepts cleanly. Always add a mandatory disclaimer that this does not replace professional medical opinions.";
 
-        // DOM Elements
+        // DOM Targets
         const fileInput = document.getElementById('file-input');
         const dropZone = document.getElementById('drop-zone');
         const uploadStatus = document.getElementById('upload-status');
@@ -315,8 +443,19 @@
         const chatInput = document.getElementById('chat-input');
         const sendBtn = document.getElementById('send-btn');
         const appModeBadge = document.getElementById('app-mode');
+        
+        // Modal UI Elements
+        const settingsModal = document.getElementById('settings-modal');
+        const openSettingsBtn = document.getElementById('open-settings-btn');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
+        const saveKeyBtn = document.getElementById('save-key-btn');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const keyDot = document.getElementById('key-dot');
 
-        // File Selection Handlers
+        // Initialize UI status based on stored key
+        updateKeyStatusUI();
+
+        // Drag and Drop Logic Observers
         fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
@@ -326,11 +465,42 @@
             handleFile(e.dataTransfer.files[0]);
         });
 
-        // Chat Handlers
+        // Chat Button Action Handlers
         sendBtn.addEventListener('click', handleSendMessage);
         chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSendMessage(); });
 
-        // Process File Drop/Selection
+        // Modal Interface Observers
+        openSettingsBtn.addEventListener('click', () => {
+            apiKeyInput.value = API_KEY;
+            settingsModal.classList.add('open');
+        });
+        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('open'));
+        saveKeyBtn.addEventListener('click', () => {
+            const incomingKey = apiKeyInput.value.trim();
+            if (incomingKey) {
+                localStorage.setItem('medbrief_gemini_key', incomingKey);
+                API_KEY = incomingKey;
+                ai = new GoogleGenAI({ apiKey: API_KEY });
+                appendMessage('system', 'System API updated successfully.');
+            } else {
+                localStorage.removeItem('medbrief_gemini_key');
+                API_KEY = "";
+                ai = null;
+                appendMessage('system', 'API key removed.');
+            }
+            updateKeyStatusUI();
+            settingsModal.classList.remove('open');
+        });
+
+        function updateKeyStatusUI() {
+            if (API_KEY) {
+                keyDot.classList.add('valid');
+            } else {
+                keyDot.classList.remove('valid');
+            }
+        }
+
+        // Process file stream uploads
         function handleFile(file) {
             if (!file || file.type !== 'application/pdf') {
                 alert('Please upload a valid PDF file.');
@@ -341,13 +511,12 @@
             appModeBadge.textContent = "Mode: Document Analysis Active";
             appModeBadge.classList.add('active-doc');
 
-            // Render PDF visually in viewport
+            // Set source into the frame viewport
             const fileURL = URL.createObjectURL(file);
             pdfViewer.src = fileURL;
             pdfViewer.style.display = 'block';
             viewerPlaceholder.style.display = 'none';
 
-            // Extract Base64 for Context Delivery
             const reader = new FileReader();
             reader.onload = async function() {
                 const base64Data = reader.result.split(',')[1];
@@ -362,12 +531,12 @@
             reader.readAsDataURL(file);
         }
 
-        // Initialize Chat session for Document analysis
+        // Initialize Chat Context Analysis
         async function analyzeDocument() {
-            if (!checkApiKey()) return;
+            if (!checkApiKeyValidity()) return;
 
-            uploadStatus.innerHTML = `<span class="spinner"></span> Analyzing medical document...`;
-            appendMessage('system', 'Switching to Document Mode. Analyzing records...');
+            uploadStatus.innerHTML = `<span class="spinner"></span> Extracting and analyzing variables...`;
+            appendMessage('system', 'Document identified. Initializing extraction models...');
 
             try {
                 chatSession = ai.chats.create({
@@ -382,37 +551,33 @@
                     ]
                 });
 
-                uploadStatus.innerHTML = "✅ Analysis complete.";
+                uploadStatus.innerHTML = "✅ Extraction complete.";
                 appendMessage('ai', response.text);
             } catch (error) {
                 console.error(error);
-                uploadStatus.innerHTML = "❌ Analysis failed.";
-                appendMessage('system', 'Failed to read document context.');
+                uploadStatus.innerHTML = "❌ Pipeline error.";
+                appendMessage('system', 'Failed to read document context. Verify that your custom API key contains appropriate access tokens.');
             }
         }
 
-        // Handle sending messages (Handles both modes dynamically)
+        // Send active message routing block
         async function handleSendMessage() {
             const query = chatInput.value.trim();
             if (!query) return;
 
-            if (!checkApiKey()) return;
+            if (!checkApiKeyValidity()) return;
 
-            // Display user text immediately
             appendMessage('user', query);
             chatInput.value = '';
 
-            // Disable inputs while awaiting LLM response
             chatInput.disabled = true;
             sendBtn.disabled = true;
 
             try {
                 if (activeMode === "document" && chatSession) {
-                    // Document-bound Q&A Mode
                     const response = await chatSession.sendMessage({ message: query });
                     appendMessage('ai', response.text);
                 } else {
-                    // Symptom Checker Mode
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash',
                         contents: query,
@@ -422,7 +587,7 @@
                 }
             } catch (error) {
                 console.error(error);
-                appendMessage('system', 'Error generating medical intelligence response.');
+                appendMessage('system', 'Error generating medical intelligence response. Please double-check your API key configurations.');
             } finally {
                 chatInput.disabled = false;
                 sendBtn.disabled = false;
@@ -430,9 +595,10 @@
             }
         }
 
-        function checkApiKey() {
-            if (!API_KEY || API_KEY === "YOUR_GEMINI_API_KEY") {
-                appendMessage('system', 'Error: Please configure your Gemini API Key in the JavaScript segment.');
+        function checkApiKeyValidity() {
+            if (!API_KEY) {
+                settingsModal.classList.add('open');
+                appendMessage('system', 'Configuration required: Please insert your Gemini API Key using the configuration dialog box.');
                 return false;
             }
             return true;
