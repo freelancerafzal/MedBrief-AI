@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedBrief AI — Medical Document & Symptom Assistant</title>
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --border: #e2e8f0;
+            --chat-user: #e0f2fe;
+            --chat-ai: #f1f5f9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--bg-card);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .mode-badge {
+            font-size: 0.85rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            background-color: #f1f5f9;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .mode-badge.active-doc {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .app-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        /* Left Side: Upload & Viewer */
+        .doc-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            height: 100%;
+        }
+
+        .upload-section {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 2px dashed var(--border);
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+
+        .upload-section.dragover {
+            border-color: var(--primary);
+            background: #f0f9ff;
+        }
+
+        .upload-btn {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .upload-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .viewer-section {
+            flex: 1;
+            background: var(--bg-card);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #pdf-viewer {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        .viewer-placeholder {
+            color: #64748b;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        /* Right Side: Chatbot */
+        .chat-panel {
+            flex: 1;
+            background: var(--bg-card);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-history {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background-color: var(--chat-user);
+            color: #0369a1;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background-color: var(--chat-ai);
+            color: var(--text-main);
+            border-bottom-left-radius: 2px;
+        }
+
+        .message.system {
+            align-self: center;
+            background-color: #fef3c7;
+            color: #92400e;
+            font-size: 0.85rem;
+            max-width: 90%;
+        }
+
+        .chat-input-area {
+            padding: 1rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        #chat-input:focus {
+            border-color: var(--primary);
+        }
+
+        #send-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 1.25rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        #send-btn:disabled, #chat-input:disabled {
+            background-color: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>MedBrief <span style="color: #64748b; font-weight: 400; font-size: 1.1rem;">AI</span></h1>
+        <div class="mode-badge" id="app-mode">Mode: Symptom Checker / General Q&A</div>
+    </header>
+
+    <div class="app-container">
+        <div class="doc-panel">
+            <div class="upload-section" id="drop-zone">
+                <p>Drag & drop your medical PDF here or</p>
+                <button class="upload-btn" onclick="document.getElementById('file-input').click()">Browse Files</button>
+                <input type="file" id="file-input" accept="application/pdf">
+                <div id="upload-status" style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--primary);"></div>
+            </div>
+            
+            <div class="viewer-section">
+                <div class="viewer-placeholder" id="viewer-placeholder">
+                    <p>No document loaded. Upload a PDF for targeted medical record parsing, or describe symptoms directly into the chat pane.</p>
+                </div>
+                <iframe id="pdf-viewer"></iframe>
+            </div>
+        </div>
+
+        <div class="chat-panel">
+            <div class="chat-history" id="chat-history">
+                <div class="message ai">
+                    <strong>Welcome to MedBrief AI.</strong><br><br>
+                    1. <strong>Document Q&A:</strong> Drop a laboratory test or medical record on the left to extract metrics and key values.<br>
+                    2. <strong>Symptom Checker:</strong> Or, describe your symptoms right here (e.g., <i>"I have a dry cough, mild fever, and fatigue for 3 days"</i>) to check potential conditions.
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Describe symptoms or ask medical questions...">
+                <button id="send-btn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/genai": "https://esm.run/@google/genai"
+        }
+      }
+    </script>
+
+    <script type="module">
+        import { GoogleGenAI } from '@google/genai';
+
+        // ==========================================
+        // ADD YOUR GEMINI API KEY HERE
+        // ==========================================
+        const API_KEY = "YOUR_GEMINI_API_KEY"; 
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+        // App States
+        let currentDocumentContext = null; 
+        let chatSession = null;
+        let activeMode = "symptom"; // "symptom" or "document"
+
+        // System Instructions
+        const DOCUMENT_SYSTEM_INSTRUCTION = "You are a healthcare document analysis assistant specializing in blood test reports and medical prescriptions. Extract all key values, flag abnormalities, and explain medical terms in simple language. Answer questions based only on the uploaded document.";
+        const GENERAL_SYMPTOM_INSTRUCTION = "You are an expert clinical medical intelligence engine. When provided with patient symptoms, map them onto potential underlying medical conditions. Clearly outline structural risk profiles, specify whether clinical triage is recommended, and explain medical concepts cleanly. Always add a mandatory disclaimer that this does not replace professional medical opinions.";
+
+        // DOM Elements
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const uploadStatus = document.getElementById('upload-status');
+        const pdfViewer = document.getElementById('pdf-viewer');
+        const viewerPlaceholder = document.getElementById('viewer-placeholder');
+        const chatHistory = document.getElementById('chat-history');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const appModeBadge = document.getElementById('app-mode');
+
+        // File Selection Handlers
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        // Chat Handlers
+        sendBtn.addEventListener('click', handleSendMessage);
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSendMessage(); });
+
+        // Process File Drop/Selection
+        function handleFile(file) {
+            if (!file || file.type !== 'application/pdf') {
+                alert('Please upload a valid PDF file.');
+                return;
+            }
+
+            activeMode = "document";
+            appModeBadge.textContent = "Mode: Document Analysis Active";
+            appModeBadge.classList.add('active-doc');
+
+            // Render PDF visually in viewport
+            const fileURL = URL.createObjectURL(file);
+            pdfViewer.src = fileURL;
+            pdfViewer.style.display = 'block';
+            viewerPlaceholder.style.display = 'none';
+
+            // Extract Base64 for Context Delivery
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const base64Data = reader.result.split(',')[1];
+                currentDocumentContext = {
+                    inlineData: {
+                        data: base64Data,
+                        mimeType: "application/pdf"
+                    }
+                };
+                await analyzeDocument();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Initialize Chat session for Document analysis
+        async function analyzeDocument() {
+            if (!checkApiKey()) return;
+
+            uploadStatus.innerHTML = `<span class="spinner"></span> Analyzing medical document...`;
+            appendMessage('system', 'Switching to Document Mode. Analyzing records...');
+
+            try {
+                chatSession = ai.chats.create({
+                    model: 'gemini-2.5-flash',
+                    config: { systemInstruction: DOCUMENT_SYSTEM_INSTRUCTION }
+                });
+
+                const response = await chatSession.sendMessage({
+                    message: [
+                        currentDocumentContext,
+                        "Please perform an initial extraction, structural value cataloging, and flag abnormalities."
+                    ]
+                });
+
+                uploadStatus.innerHTML = "✅ Analysis complete.";
+                appendMessage('ai', response.text);
+            } catch (error) {
+                console.error(error);
+                uploadStatus.innerHTML = "❌ Analysis failed.";
+                appendMessage('system', 'Failed to read document context.');
+            }
+        }
+
+        // Handle sending messages (Handles both modes dynamically)
+        async function handleSendMessage() {
+            const query = chatInput.value.trim();
+            if (!query) return;
+
+            if (!checkApiKey()) return;
+
+            // Display user text immediately
+            appendMessage('user', query);
+            chatInput.value = '';
+
+            // Disable inputs while awaiting LLM response
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+
+            try {
+                if (activeMode === "document" && chatSession) {
+                    // Document-bound Q&A Mode
+                    const response = await chatSession.sendMessage({ message: query });
+                    appendMessage('ai', response.text);
+                } else {
+                    // Symptom Checker Mode
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash',
+                        contents: query,
+                        config: { systemInstruction: GENERAL_SYMPTOM_INSTRUCTION }
+                    });
+                    appendMessage('ai', response.text);
+                }
+            } catch (error) {
+                console.error(error);
+                appendMessage('system', 'Error generating medical intelligence response.');
+            } finally {
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        function checkApiKey() {
+            if (!API_KEY || API_KEY === "YOUR_GEMINI_API_KEY") {
+                appendMessage('system', 'Error: Please configure your Gemini API Key in the JavaScript segment.');
+                return false;
+            }
+            return true;
+        }
+
+        // Helper: UI Message Appender
+        function appendMessage(sender, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', sender);
+            msgDiv.innerText = text;
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+    </script>
+</body>
+</html>
