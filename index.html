@@ -622,17 +622,17 @@
             appendMessage('system', 'Analyzing health record data vectors via secure stream context...');
 
             try {
-                // Instantiate the chat container
+                // Initialize modern multi-turn chat tracking
                 chatSession = ai.chats.create({
                     model: 'gemini-2.5-flash',
                     config: { systemInstruction: DOCUMENT_SYSTEM_INSTRUCTION }
                 });
 
-                // FIXED SDK CALL: Structured precisely matching modern @google/genai chat rules
+                // FIXED SDK PAYLOAD ARGS: Bundling both text parameter guidelines and currentDocumentContext matching content arrays
                 const response = await chatSession.sendMessage({
                     message: [
-                        currentDocumentContext,
-                        "Please perform an initial extraction, structural value cataloging, and flag abnormalities."
+                        { text: "Please perform an initial extraction, structural value cataloging, and flag abnormalities." },
+                        currentDocumentContext
                     ]
                 });
 
@@ -679,4 +679,30 @@
             }
         }
 
-        function checkApiKey
+        function checkApiKeyValidity() {
+            if (!API_KEY) {
+                settingsModal.classList.add('open');
+                appendMessage('system', 'Access configuration required: Open API Gateway.');
+                return false;
+            }
+            return true;
+        }
+
+        function appendMessage(sender, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', sender);
+            msgDiv.innerText = text;
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function appendMarkdownMessage(sender, markdownText) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', sender);
+            msgDiv.innerHTML = window.marked ? window.marked.parse(markdownText) : markdownText;
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+    </script>
+</body>
+</html>
