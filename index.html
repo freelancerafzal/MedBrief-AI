@@ -1,112 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>MedBrief | Clinical Analysis Slip</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap');
+// Ensure this structure is used for every turn in the conversation
+async function handleSendMessage(query, chatSession, currentDocumentContext) {
+    // Construct the payload as an array of parts
+    const messageParts = [{ text: query }];
+    
+    // If a document was uploaded, re-inject it into this turn's payload
+    if (currentDocumentContext) {
+        messageParts.push(currentDocumentContext);
+    }
 
-        :root {
-            --paper: #ECE5D3; --card: #F6F2E9; --ink: #20262E;
-            --clinical-blue: #1B4965; --border: #D8CFB8; --flag-red: #9A3324; --red-bg: #F6E6E0;
-        }
-
-        body { font-family: 'IBM Plex Sans', sans-serif; background: var(--paper); color: var(--ink); margin: 0; display: flex; height: 100vh; }
-        
-        /* Requisition Slip Sidebar */
-        .sidebar { width: 320px; padding: 2rem; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-        .sidebar h2 { font-family: 'IBM Plex Mono'; font-size: 1rem; text-transform: uppercase; border-bottom: 2px solid var(--ink); padding-bottom: 0.5rem; }
-        .form-field { margin-top: 1.5rem; display: flex; flex-direction: column; }
-        .form-field label { font-family: 'IBM Plex Mono'; font-size: 0.7rem; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
-        .form-field input { background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 0.5rem 0; outline: none; }
-
-        /* Stamp Effect */
-        #status { font-family: 'IBM Plex Mono'; font-size: 0.7rem; border: 2px dashed var(--ink); padding: 1rem; transform: rotate(-2deg); margin-top: 2rem; text-align: center; }
-        .is-busy { animation: pulse 1.5s infinite; }
-        .is-error { border-color: var(--flag-red); color: var(--flag-red); }
-
-        /* Main Workspace */
-        .main-panel { flex: 1; display: flex; flex-direction: column; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 28px 28px; }
-        #chat-history { flex: 1; overflow-y: auto; padding: 2rem; }
-
-        /* Annotation Style Responses */
-        .message { background: var(--card); padding: 1.5rem; margin-bottom: 2rem; border-left: 4px solid var(--clinical-blue); box-shadow: 2px 2px 5px rgba(0,0,0,0.05); transform: rotate(-0.5deg); }
-        .user { align-self: flex-end; background: var(--clinical-blue); color: white; border-left: none; transform: none; padding: 0.8rem 1.2rem; }
-
-        button { background: var(--ink); color: white; font-family: 'IBM Plex Mono'; font-size: 0.7rem; padding: 0.8rem; border: none; cursor: pointer; text-transform: uppercase; }
-        button:hover { background: var(--clinical-blue); }
-
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-    </style>
-</head>
-<body>
-    <div class="sidebar">
-        <h2>Specimen Requisition</h2>
-        <div class="form-field">
-            <label>API KEY</label>
-            <input type="password" id="api-key">
-        </div>
-        <div class="form-field">
-            <label>REPORT FILE</label>
-            <input type="file" id="file-input" accept="application/pdf,image/*">
-        </div>
-        <div id="status">STATUS: READY</div>
-    </div>
-    <div class="main-panel">
-        <div id="chat-history"></div>
-        <div style="padding: 2rem; display:flex; gap:1rem;">
-            <input type="text" id="user-input" style="flex:1; background:var(--card); border:1px solid var(--border); padding:1rem;">
-            <button id="send-btn">Process Findings</button>
-        </div>
-    </div>
-
-    <script type="importmap"> { "imports": { "@google/genai": "https://esm.run/@google/genai" } } </script>
-    <script type="module">
-        import { GoogleGenAI } from '@google/genai';
-        let ai = null, chatSession = null, currentDocumentContext = null;
-
-        document.getElementById('api-key').addEventListener('change', (e) => ai = new GoogleGenAI({ apiKey: e.target.value }));
-
-        document.getElementById('file-input').addEventListener('change', async (e) => {
-            const status = document.getElementById('status');
-            status.innerText = "PARSING DATA...";
-            status.className = "is-busy";
-            
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                currentDocumentContext = { inlineData: { data: event.target.result.split(',')[1], mimeType: file.type } };
-                chatSession = ai.chats.create({ model: 'gemini-2.5-flash' });
-                try {
-                    const response = await chatSession.sendMessage({ message: [{ text: "Extract lab results." }, currentDocumentContext] });
-                    appendMsg('AI', response.text);
-                    status.innerText = "STATUS: COMPLETE";
-                    status.className = "";
-                } catch(e) {
-                    status.innerText = "STATUS: ERROR";
-                    status.className = "is-error";
-                }
-            };
-            reader.readAsDataURL(file);
-        });
-
-        document.getElementById('send-btn').addEventListener('click', async () => {
-            const input = document.getElementById('user-input');
-            if (!input.value || !chatSession) return;
-            appendMsg('User', input.value);
-            const payload = currentDocumentContext ? { message: [{ text: input.value }, currentDocumentContext] } : { message: input.value };
-            const response = await chatSession.sendMessage(payload);
-            appendMsg('AI', response.text);
-            input.value = '';
-        });
-
-        function appendMsg(sender, text) {
-            const div = document.createElement('div');
-            div.className = `message ${sender.toLowerCase()}`;
-            div.innerHTML = `<strong>${sender.toUpperCase()}</strong><br>${marked.parse(text)}`;
-            document.getElementById('chat-history').appendChild(div);
-        }
-    </script>
-</body>
-</html>
+    try {
+        // Correct SDK usage: send the array of parts directly
+        const response = await chatSession.sendMessage(messageParts);
+        return response.text;
+    } catch (error) {
+        console.error("Pipeline Error:", error);
+        throw error;
+    }
+}
