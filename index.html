@@ -1,23 +1,100 @@
-// 1. REASSURING STATUS MESSAGES
-// Instead of "PARSING DATA", we use natural, friendly status updates.
-function updateStatus(message) {
-    const status = document.getElementById('status');
-    status.innerText = message;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MedBrief AI | Patient Care Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap');
+        :root { --paper: #ECE5D3; --card: #F6F2E9; --ink: #20262E; --clinical-blue: #1B4965; --border: #D8CFB8; }
+        
+        body { font-family: 'IBM Plex Sans', sans-serif; background: var(--paper); color: var(--ink); margin: 0; display: flex; height: 100vh; }
+        
+        .sidebar { width: 320px; padding: 2rem; border-right: 1px solid var(--border); background: var(--card); display: flex; flex-direction: column; }
+        .brand-name { font-family: 'IBM Plex Mono'; color: var(--clinical-blue); border-bottom: 2px solid var(--ink); padding-bottom: 1rem; margin-bottom: 2rem; }
+        
+        #status { font-family: 'IBM Plex Mono'; font-size: 0.7rem; border: 1px dashed var(--ink); padding: 1rem; text-align: center; margin-top: auto; }
+        
+        .main-panel { flex: 1; display: flex; flex-direction: column; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 28px 28px; }
+        #chat-history { flex: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; }
+        
+        .message { background: #FFFFFF; padding: 1.5rem; margin-bottom: 1.5rem; border-left: 4px solid var(--clinical-blue); border-radius: 0 8px 8px 0; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
+        .user { align-self: flex-end; background: var(--clinical-blue); color: white; border-radius: 8px 0 8px 8px; border-left: none; }
+        
+        button { background: var(--ink); color: white; font-family: 'IBM Plex Mono'; font-size: 0.8rem; padding: 1rem; border: none; cursor: pointer; text-transform: uppercase; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="brand-name">MEDBRIEF AI</div>
+        <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.7rem; font-family: 'IBM Plex Mono';">PRIVATE ACCESS CODE</label>
+            <input type="password" id="api-key" style="width: 100%; border: none; border-bottom: 1px solid var(--border); background: transparent;">
+        </div>
+        <input type="file" id="file-input" accept="application/pdf,image/*" style="margin-top:1rem;">
+        <div id="status">I am ready. Please upload your report.</div>
+    </div>
+    <div class="main-panel">
+        <div id="chat-history"></div>
+        <div style="padding: 2rem; display:flex; gap:1rem;">
+            <input type="text" id="user-input" style="flex:1; background:var(--card); border:1px solid var(--border); padding:1rem; border-radius:8px;" placeholder="Ask me anything about your results...">
+            <button id="send-btn">Ask a Question</button>
+        </div>
+    </div>
 
-// 2. CONVERSATIONAL AI SYSTEM INSTRUCTION
-// The instruction now forces the AI to be a friendly, supportive partner.
-chatSession = ai.chats.create({ 
-    model: 'gemini-2.5-flash',
-    config: { 
-        systemInstruction: `You are MedBrief AI, a supportive, warm clinical assistant. 
-        Speak to the patient like a kind, trusted family doctor. 
-        - Avoid complex jargon or explain it in simple terms immediately. 
-        - Use encouraging language. 
-        - Always summarize the findings in a "What this means for you" section.` 
-    } 
-});
+    <script type="importmap"> { "imports": { "@google/genai": "https://esm.run/@google/genai" } } </script>
+    <script type="module">
+        import { GoogleGenAI } from '@google/genai';
+        let ai = null, chatSession = null, currentDocumentContext = null;
 
-// 3. FRIENDLY BUTTON LABELS
-// Replace "Process" with "HELP ME UNDERSTAND THIS REPORT"
-// Replace "Send Query" with "ASK A QUESTION"
+        document.getElementById('api-key').addEventListener('change', (e) => ai = new GoogleGenAI({ apiKey: e.target.value }));
+
+        document.getElementById('file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            const status = document.getElementById('status');
+            
+            reader.onload = async (event) => {
+                currentDocumentContext = { inlineData: { data: event.target.result.split(',')[1], mimeType: file.type } };
+                status.innerText = "I'm reading your report now, please wait...";
+                
+                chatSession = ai.chats.create({ 
+                    model: 'gemini-2.5-flash',
+                    config: { systemInstruction: "You are a warm, supportive clinical assistant. Use plain language." } 
+                });
+                
+                try {
+                    const response = await chatSession.sendMessage({ 
+                        message: [{ text: "Please summarize these clinical findings." }, currentDocumentContext] 
+                    });
+                    appendMsg('AI', response.text);
+                    status.innerText = "I have finished reading! What would you like to know?";
+                } catch (err) {
+                    status.innerText = "I'm sorry, I had trouble reading the file. Please check your Access Code.";
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('send-btn').addEventListener('click', async () => {
+            const input = document.getElementById('user-input');
+            if (!input.value || !chatSession) return;
+            appendMsg('User', input.value);
+            
+            const payload = currentDocumentContext ? { message: [{ text: input.value }, currentDocumentContext] } : { message: input.value };
+            const response = await chatSession.sendMessage(payload);
+            appendMsg('AI', response.text);
+            input.value = '';
+        });
+
+        function appendMsg(sender, text) {
+            const chat = document.getElementById('chat-history');
+            const div = document.createElement('div');
+            div.className = `message ${sender.toLowerCase()}`;
+            div.innerHTML = `<strong>${sender.toUpperCase()}</strong><br>${marked.parse(text)}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+</html>
