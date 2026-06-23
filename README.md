@@ -19,5 +19,7 @@ Simple, Three-Step Flow: Just upload your document, process it, and get an expla
 A Kind AI Persona: I’ve fine-tuned the AI to be patient, warm, and supportive, focusing on "what these numbers mean for you."
 
 Actionable Insights: Instead of just raw data, the tool highlights clear next steps to help you prepare for your actual doctor’s visit.
+<img width="1351" height="682" alt="image" src="https://github.com/user-attachments/assets/633904c9-73f0-440e-b506-8f8b5f379c0e" />
+
 
 Disclaimer: This tool is for informational purposes only and does not replace professional medical advice, diagnosis, or treatment. Always consult with your healthcare provider regarding your medical results.
